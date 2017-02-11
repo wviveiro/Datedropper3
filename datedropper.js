@@ -1991,12 +1991,6 @@
 					translate : picker_translate_mode
 				};
 
-				if(input.data('auto-lang')===true) {
-					var
-						lng = window.navigator.userLanguage || window.navigator.language;
-					pickers[id].lang = lng;
-				}
-
 				if(picker_default_date) {
 
 					var regex = /\d+/g;
