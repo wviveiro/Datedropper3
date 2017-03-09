@@ -1226,14 +1226,8 @@
 			return n % 1 === 0;
 		},
 		is_date = function(value) {
-			var format;
-			if (toString.call(value) === '[object Date]') {
-				return true;
-			}
-			if (typeof value.replace === 'function') {
-				value.replace(/^\s+|\s+$/gm, '');
-			}
-			format = /(^\d{1,4}[\.|\\/|-]\d{1,2}[\.|\\/|-]\d{1,4})(\s*(?:0?[1-9]:[0-5]|1(?=[012])\d:[0-5])\d\s*[ap]m)?$/;
+			var
+				format = /(^\d{1,4}[\.|\\/|-]\d{1,2}[\.|\\/|-]\d{1,4})(\s*(?:0?[1-9]:[0-5]|1(?=[012])\d:[0-5])\d\s*[ap]m)?$/;
 			return format.test(value);
 		},
 
