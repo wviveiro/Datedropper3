@@ -1205,6 +1205,7 @@
 		pick_dragged = null,
 		pick_drag_offset = null,
 		pick_drag_temp = null,
+		calendarDate = {},
 
 		// CHECK FUNCTIONS
 
@@ -1263,6 +1264,34 @@
 					}
 				}
 			}
+			
+			if(pickers[picker.id].disabledays) {
+				if(pickers[picker.id].disabledays.indexOf(unix_current) != -1) {
+					picker_alrt();
+					picker.element.addClass('picker-lkd');
+					return true;
+				}
+				else {
+					picker.element.removeClass('picker-lkd');
+					return false;
+				}
+			}
+		},
+		is_disabled = function(){
+			var unix_current = get_unix(get_current_full());
+
+			var cb = picker_cb_disabled_days;
+			var result = cb(unix_current);
+
+			if (!result ) {
+				picker_alrt();
+				picker.element.addClass('picker-lkd');
+				return true;
+			} else {
+				picker.element.removeClass('picker-lkd');
+				return false;
+			}
+			
 
 			if(pickers[picker.id].disabledays) {
 				if(pickers[picker.id].disabledays.indexOf(unix_current) != -1) {
@@ -1276,6 +1305,26 @@
 				}
 			}
 		},
+		is_weekend = function()
+		{
+			return false;
+			var
+				unix_current = get_unix(get_current_full()),
+				unix_today = get_unix(get_today_full());
+				
+			var currentDate = new Date( unix_current*1000 );
+
+			if( currentDate.getDay() === 0 || currentDate.getDay() === 6 )
+			{
+				picker_alrt();
+				picker.element.addClass('picker-lkd');
+				return true;
+			} else 
+			{
+				picker.element.removeClass('picker-lkd');
+				return false;
+			}
+		}
 		is_int = function(n) {
 			return n % 1 === 0;
 		},
@@ -1368,6 +1417,7 @@
 			if(pickers[picker.id].large) {
 				picker.element.toggleClass('picker-lg');
 				picker_render_calendar();
+				picker_fills();
 			}
 		},
 		picker_translate_onoff = function() {
@@ -1404,7 +1454,11 @@
 			picker.element.addClass('picker-focus');
 		},
 		picker_hide = function() {
-			if(!is_locked()) {
+			var v_is_locked = is_locked();
+			var v_is_disabled = is_disabled();
+			var v_is_weekend = is_weekend();
+
+			if(!v_is_locked&&!v_is_disabled&&!v_is_weekend) {
 				picker.element.removeClass('picker-focus');
 				if(picker.element.hasClass('picker-modal'))
 					$('.picker-modal-overlay').addClass('tohide');
@@ -1482,7 +1536,7 @@
 
 		},
 		picker_render_calendar = function() {
-
+			
 			var
 				index = 0,
 				w = get_picker_els('.pick-lg-b');
@@ -1491,6 +1545,8 @@
 			.empty()
 			.removeClass('pick-n pick-b pick-a pick-v pick-lk pick-sl pick-h')
 			.attr('data-value','');
+
+			$(".pick-lg-lk-info").remove();
 
 			var
 				_C = new Date(get_current_full()),
@@ -1584,12 +1640,12 @@
 			}
 			if(pickers[picker.id].disabledays) {
 				$.each(pickers[picker.id].disabledays, function( i, v ) {
-					if(v&&is_date(v)) {
+					if(v&&is_int(v)) {
 						var
 							d = new Date(v*1000);
 						if(d.getMonth()+1==get_current('m')&&d.getFullYear()==get_current('y'))
 							get_picker_els('.pick-lg .pick-lg-b li.pick-v[data-value="'+d.getDate()+'"]')
-							.addClass('pick-lk');
+							.addClass('pick-lk').addClass('pick-dsbd');
 					}
 				});
 			}
@@ -1630,26 +1686,103 @@
 				get_picker_els('.pick-lg-b li').removeClass('pick-wke');
 				get_picker_els('.pick-lg-b li.pick-v')
 				.each(function() {
-					var
-						d = new Date(m+"/"+$(this).attr('data-value')+"/"+y).getDay();
-					if(d==0||d==6)
+					var d = Math.round(new Date(m+"/"+$(this).attr('data-value')+"/"+y).getTime() / 1000);
+					if (!picker_cb_disabled_days(d)) {
 						$(this).addClass('pick-wke');
+					}
+
+
+
+					// var
+					// 	d = new Date(m+"/"+$(this).attr('data-value')+"/"+y).getDay();
+					// 	console.log($(this).attr('data-value'));
+					// if(d==0||d==6)
+					// 	$(this).addClass('pick-wke');
 
 				});
 			}
 
 		},
 		picker_set = function() {
-			if(picker.element.hasClass('picker-lg'))
-				picker_render_calendar();
 			picker_fills();
 			input_change_value();
+			if(picker.element.hasClass('picker-lg')){
+				picker_render_calendar();
+				picker_fills();
+				input_change_value();
+			}
+		},
+		manual_check_disabled_lock = function(k,i)
+		{
+			if( !calendarDate.hasOwnProperty("year") )
+			{
+				calendarDate.year = new Date().getFullYear();
+				calendarDate.month = new Date().getMonth();
+				calendarDate.date = new Date().getDate();
+			}
+			if( k === "y" ) calendarDate.year = i;
+			if( k === "m" ) calendarDate.month = i;
+			if( k === "d" ) calendarDate.date = i;
+
+			calendarDate.full_calendar = new Date( calendarDate.year, ( +calendarDate.month -1 ), calendarDate.date );
+
+			get_picker_els('.pick-min-lockdown').removeClass('pick-min-lockdown');
+			get_picker_els('.pick-mini-view-lk-info').remove();
+
+			if( calendarDate.full_calendar.getDay() === 0 || calendarDate.full_calendar.getDay() === 6 )
+			{
+				get_picker_els('.pick.pick-d li[value="'+calendarDate.date+'"]').addClass("pick-min-lockdown");
+			}			
+			
+			if(pickers[picker.id].lock) {
+				if(pickers[picker.id].lock==='from') {
+					if(calendarDate.year<=get_today('y')) {
+						if(calendarDate.month==get_today('m')) {
+							get_picker_els('.pick.pick-d li[value="'+get_today('d')+'"]').prevAll("li").addClass("pick-min-lockdown");
+						}
+						else {
+							if(calendarDate.month<get_today('m')) {
+								get_picker_els('.pick.pick-d li').addClass("pick-min-lockdown");
+							}
+							else if(calendarDate.month>get_today('m')&&get_current('y')<get_today('y')) {
+								get_picker_els('.pick.pick-d li').addClass("pick-min-lockdown");
+							}
+						}
+					}
+				}
+				else {
+					if(calendarDate.year>=get_today('y')) {
+						if(calendarDate.month==get_today('m')) {
+							get_picker_els('.pick.pick-d li[value="'+get_today('d')+'"]').nextAll('li').addClass("pick-min-lockdown");
+						}
+						else {
+							if(calendarDate.month>get_today('m')) {
+								get_picker_els('.pick.pick-d li').addClass("pick-min-lockdown");
+							}
+							else if(calendarDate.month<get_today('m')&&calendarDate.year>get_today('y')) {
+								get_picker_els('.pick.pick-d li').addClass("pick-min-lockdown");
+							}
+						}
+					}
+				}
+			}
+			if(pickers[picker.id].disabledays) {
+				$.each(pickers[picker.id].disabledays, function( i, v ) {
+					if(v&&is_int(v)) {
+						var
+							d = new Date(v*1000);
+						if(d.getMonth()+1==calendarDate.month&&d.getFullYear()==calendarDate.year)
+							get_picker_els('.pick.pick-d li[value="'+d.getDate()+'"]').addClass("pick-min-lockdown");
+					}
+				});
+			}
+			
 		},
 
 		// ACTION FUNCTIONS
 
 		picker_ul_transition = function(k,i) {
-
+			manual_check_disabled_lock(k,i);
 			var
 				ul = get_ul(k);
 
@@ -1706,6 +1839,10 @@
 		picker_alrt = function() {
 			picker.element
 			.addClass('picker-rmbl');
+			
+			if( get_picker_els(".pick-mini-view-lk-info").length < 1 )
+			{ get_picker_els(".pick.pick-y").after( '<div class="pick-mini-view-lk-info">Sorry!<br>we do not delivery on this day.</div>' ); }
+
 		},
 
 		/* INPUT FUNCTIONS */
@@ -1720,8 +1857,11 @@
 			return n+(s[(v-20)%10]||s[v]||s[0]);
 		},
 		input_change_value = function() {
+			var v_is_locked = is_locked();
+			var v_is_disabled = is_disabled();
+			var v_is_weekend = is_weekend();
 
-			if(!is_locked()&&picker_ctrl) {
+			if(!v_is_locked&&!v_is_disabled&&!v_is_weekend&&picker_ctrl) {
 
 				var
 					d = get_current('d'),
@@ -1993,6 +2133,7 @@
 					picker_modal = (input.data('modal')===true) ? 'picker-modal' : '',
 					picker_theme = input.data('theme') || 'primary',
 					picker_translate_mode = (input.data('translate-mode')===true) ? true : false;
+					picker_cb_disabled_days = options.disabledays || function(){return false}
 
 				if(picker_disabled_days) {
 					$.each(picker_disabled_days, function( index, value ) {
@@ -2177,4 +2318,6 @@
 
 		});
 	};
+
+	picker_fills();
 }(jQuery));
